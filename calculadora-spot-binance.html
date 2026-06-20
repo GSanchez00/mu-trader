@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Operación · Spot</title>
+<style>
+  :root{
+    --bg:#0a0c0f;
+    --panel:#10141a;
+    --panel-2:#151a22;
+    --line:#212833;
+    --text:#dbe2ea;
+    --text-dim:#6b7686;
+    --mono:#8a96a8;
+    --green:#21c97a;
+    --green-dim:#0f6b41;
+    --red:#e5484d;
+    --red-dim:#7a2226;
+    --amber:#e8a23a;
+    --accent:#3aa6e8;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'JetBrains Mono','SF Mono',Consolas,monospace;
+    min-height:100vh;
+    padding:24px 16px 60px;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .wrap{ max-width:980px; margin:0 auto; }
+
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    border-bottom:1px solid var(--line);
+    padding-bottom:14px; margin-bottom:22px;
+    flex-wrap:wrap; gap:10px;
+  }
+  header .title{
+    font-size:13px; letter-spacing:0.18em; text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  header .title b{ color:var(--text); font-weight:600; }
+  header .clock{
+    font-size:12px; color:var(--text-dim);
+  }
+  header .clock span{ color:var(--amber); }
+
+  /* ---- Ticker strip ---- */
+  .tickers{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-bottom:22px;
+    overflow:hidden;
+  }
+  .tick{
+    background:var(--panel);
+    padding:14px 16px;
+    cursor:pointer;
+    transition:background 0.15s ease;
+    position:relative;
+  }
+  .tick:hover{ background:var(--panel-2); }
+  .tick.active{ background:var(--panel-2); }
+  .tick.active::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background:var(--accent);
+  }
+  .tick .sym{
+    font-size:11px; letter-spacing:0.1em; color:var(--text-dim);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .tick .sym .pair{ color:var(--text); font-weight:600; }
+  .tick .px{
+    font-size:20px; font-weight:600; margin-top:6px; color:var(--text);
+    font-variant-numeric:tabular-nums;
+  }
+  .tick .px.stale{ color:var(--text-dim); }
+  .tick .meta{ font-size:10px; color:var(--text-dim); margin-top:4px; }
+
+  @media (max-width:900px){
+    .tickers{ grid-template-columns:repeat(3,1fr); }
+  }
+  @media (max-width:560px){
+    .tickers{ grid-template-columns:repeat(2,1fr); }
+  }
+
+  /* ---- Layout grid ---- */
+  .grid{
+    display:grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap:16px;
+  }
+  @media (max-width:840px){
+    .grid{ grid-template-columns:1fr; }
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+  }
+  .panel-head{
+    padding:10px 16px;
+    border-bottom:1px solid var(--line);
+    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text-dim);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel-body{ padding:18px 16px; }
+
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-size:11px; color:var(--text-dim);
+    margin-bottom:6px; letter-spacing:0.04em;
+  }
+  .field .hint{ font-size:10px; color:var(--text-dim); margin-top:5px; }
+
+  .input-row{ display:flex; gap:8px; }
+
+  input[type="number"], input[type="text"]{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:inherit;
+    font-size:14px;
+    padding:9px 10px;
+    outline:none;
+    font-variant-numeric:tabular-nums;
+    transition:border-color 0.15s ease;
+  }
+  input:focus{ border-color:var(--accent); }
+  input::placeholder{ color:#3a4250; }
+
+  .unit-suffix{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-left:none;
+    color:var(--text-dim);
+    font-size:12px;
+    padding:9px 10px;
+    white-space:nowrap;
+  }
+  .with-suffix{ display:flex; }
+  .with-suffix input{ border-right:none; }
+
+  .mode-toggle{
+    display:flex; gap:0; border:1px solid var(--line);
+    margin-bottom:16px;
+  }
+  .mode-toggle button{
+    flex:1; background:var(--bg); color:var(--text-dim);
+    border:none; padding:8px 6px; font-family:inherit; font-size:11px;
+    letter-spacing:0.05em; cursor:pointer; border-right:1px solid var(--line);
+    transition:all 0.15s ease;
+  }
+  .mode-toggle button:last-child{ border-right:none; }
+  .mode-toggle button.on{ background:var(--accent); color:#06141f; font-weight:600; }
+
+  .divider-label{
+    font-size:10px; color:var(--text-dim); letter-spacing:0.12em;
+    text-transform:uppercase; margin:18px 0 10px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .divider-label::after{ content:''; flex:1; height:1px; background:var(--line); }
+
+  /* ---- Result panel ---- */
+  .result-hero{
+    padding:20px 16px;
+    border-bottom:1px solid var(--line);
+    text-align:center;
+  }
+  .result-hero .label{
+    font-size:11px; color:var(--text-dim); letter-spacing:0.1em;
+    text-transform:uppercase; margin-bottom:8px;
+  }
+  .result-hero .num{
+    font-size:42px; font-weight:700; line-height:1;
+    font-variant-numeric:tabular-nums;
+    transition:color 0.2s ease;
+  }
+  .result-hero .num.pos{ color:var(--green); }
+  .result-hero .num.neg{ color:var(--red); }
+  .result-hero .sub{
+    font-size:13px; color:var(--text-dim); margin-top:8px;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .rows{ padding:4px 16px 16px; }
+  .row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:9px 0; border-bottom:1px dashed var(--line);
+    font-size:13px;
+  }
+  .row:last-child{ border-bottom:none; }
+  .row .k{ color:var(--text-dim); }
+  .row .v{ font-variant-numeric:tabular-nums; font-weight:500; }
+  .row .v.red{ color:var(--red); }
+  .row .v.green{ color:var(--green); }
+  .row .v.amber{ color:var(--amber); }
+
+  .breakeven-strip{
+    margin:0 16px 16px; padding:12px 14px;
+    background:var(--panel-2);
+    border-left:3px solid var(--amber);
+    font-size:12px; color:var(--text);
+    line-height:1.5;
+  }
+  .breakeven-strip b{ color:var(--amber); }
+
+  .footer-note{
+    margin-top:24px; font-size:11px; color:var(--text-dim);
+    line-height:1.7; border-top:1px solid var(--line); padding-top:14px;
+  }
+  .footer-note code{
+    background:var(--panel-2); padding:1px 5px; color:var(--mono);
+  }
+
+  .err{
+    font-size:11px; color:var(--red); margin-top:6px; min-height:14px;
+  }
+
+  #clearBtn{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-family:inherit;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    padding:4px 9px;
+    cursor:pointer;
+    transition:all 0.15s ease;
+  }
+  #clearBtn:hover{
+    border-color:var(--red);
+    color:var(--red);
+  }
+
+  ::selection{ background:var(--accent); color:#06141f; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="title">Spot Calc <b>// Binance Net P&amp;L</b></div>
+    <div class="clock">Fee por operación: <span id="feeDisplay">0.10%</span> · ida y vuelta <span id="feeTotalDisplay">0.20%</span></div>
+  </header>
+
+  <div class="tickers" id="tickers">
+    <div class="tick active" data-sym="ONDO">
+      <div class="sym"><span class="pair">ONDO/USDT</span><span>spot</span></div>
+      <div class="px" id="px-ONDO">—</div>
+      <div class="meta">tocá para usar este precio</div>
+    </div>
+    <div class="tick" data-sym="XRP">
+      <div class="sym"><span class="pair">XRP/USDT</span><span>spot</span></div>
+      <div class="px" id="px-XRP">—</div>
+      <div class="meta">tocá para usar este precio</div>
+    </div>
+    <div class="tick" data-sym="HYPER">
+      <div class="sym"><span class="pair">HYPER/USDT</span><span>spot</span></div>
+      <div class="px" id="px-HYPER">—</div>
+      <div class="meta">tocá para usar este precio</div>
+    </div>
+    <div class="tick" data-sym="BTC">
+      <div class="sym"><span class="pair">BTC/USDT</span><span>spot</span></div>
+      <div class="px" id="px-BTC">—</div>
+      <div class="meta">tocá para usar este precio</div>
+    </div>
+    <div class="tick" data-sym="MUB">
+      <div class="sym"><span class="pair">MUB/USDT</span><span>bStock</span></div>
+      <div class="px" id="px-MUB">—</div>
+      <div class="meta">Micron tokenizada · fee 0.15%</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-head">
+        <span>Parámetros de la operación</span>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <span id="symBadge">ONDO</span>
+          <button id="clearBtn" type="button" title="Borrar los datos de este ticker">Limpiar</button>
+        </span>
+      </div>
+      <div class="panel-body">
+
+        <div class="field">
+          <label>¿Cómo querés ingresar el monto a comprar?</label>
+          <div class="mode-toggle">
+            <button id="qtyModeCrypto" class="on">En cripto</button>
+            <button id="qtyModeUsd">En dólares (USDT)</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="qty" id="qtyLabel">Cantidad de cripto que compro</label>
+          <div class="with-suffix">
+            <input type="number" id="qty" placeholder="ej: 500" step="any" min="0">
+            <div class="unit-suffix" id="qtyUnitSuffix">unidades</div>
+          </div>
+          <div class="hint" id="qtyHint">Cantidad de tokens que vas a comprar.</div>
+        </div>
+
+        <div class="field">
+          <label for="buyPrice">Precio de compra (USDT)</label>
+          <div class="with-suffix">
+            <input type="number" id="buyPrice" placeholder="0.00" step="any" min="0">
+            <div class="unit-suffix">USDT</div>
+          </div>
+          <div class="hint">Se autocompleta al tocar un ticker arriba, pero podés editarlo.</div>
+        </div>
+
+        <div class="mode-toggle">
+          <button id="modeBySell" class="on">Defino precio de venta</button>
+          <button id="modeByPct">Defino % ganancia deseado</button>
+        </div>
+
+        <div class="field" id="sellPriceField">
+          <label for="sellPrice">Precio de venta (USDT)</label>
+          <div class="with-suffix">
+            <input type="number" id="sellPrice" placeholder="0.00" step="any" min="0">
+            <div class="unit-suffix">USDT</div>
+          </div>
+        </div>
+
+        <div class="field" id="pctField" style="display:none;">
+          <label for="targetPct">% de ganancia NETA deseada (después de fees)</label>
+          <div class="with-suffix">
+            <input type="number" id="targetPct" placeholder="ej: 5" step="any">
+            <div class="unit-suffix">%</div>
+          </div>
+          <div class="hint">Calculo a qué precio exacto tenés que vender para lograr ese % limpio.</div>
+        </div>
+
+        <div class="divider-label">Fees</div>
+        <div class="field">
+          <label for="feePct">Fee de Binance por operación</label>
+          <div class="with-suffix">
+            <input type="number" id="feePct" value="0.1" step="any" min="0">
+            <div class="unit-suffix">%</div>
+          </div>
+          <div class="hint">Se aplica dos veces: al comprar y al vender (0.10% + 0.10% = 0.20% total). Si usás BNB para pagar fees suele ser 0.075%.</div>
+        </div>
+
+        <div class="err" id="errBox"></div>
+      </div>
+    </div>
+
+    <!-- RESULT PANEL -->
+    <div class="panel">
+      <div class="result-hero">
+        <div class="label">Ganancia neta (después de fees)</div>
+        <div class="num" id="netPctNum">0.00%</div>
+        <div class="sub" id="netUsdSub">$0.00 USDT</div>
+      </div>
+
+      <div class="rows">
+        <div class="row"><span class="k">Cantidad de cripto comprada</span><span class="v" id="r-qtyBought">—</span></div>
+        <div class="row"><span class="k">Invertido (compra + fee)</span><span class="v" id="r-invested">—</span></div>
+        <div class="row"><span class="k">Fee de compra</span><span class="v red" id="r-feeBuy">—</span></div>
+        <div class="row"><span class="k">Bruto recibido al vender</span><span class="v" id="r-grossSell">—</span></div>
+        <div class="row"><span class="k">Fee de venta</span><span class="v red" id="r-feeSell">—</span></div>
+        <div class="row"><span class="k">Recibís neto (en mano)</span><span class="v" id="r-netReceived">—</span></div>
+        <div class="row"><span class="k">Ganancia / pérdida en USDT</span><span class="v" id="r-pnlUsd">—</span></div>
+        <div class="row"><span class="k">Precio de venta usado/calculado</span><span class="v amber" id="r-sellUsed">—</span></div>
+      </div>
+
+      <div class="breakeven-strip" id="breakevenStrip">
+        Precio de equilibrio (breakeven, ganancia 0%): <b id="breakevenPrice">—</b>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    Los precios de <code>ONDO</code>, <code>XRP</code>, <code>HYPER</code>, <code>BTC</code> y <code>MUB</code> se cargan una vez al abrir la página desde un endpoint público de precios (no se actualizan solos). Si querés precios frescos, recargá la página. El cálculo asume operación spot sin apalancamiento: fee de compra sobre el monto invertido y fee de venta sobre el monto bruto obtenido al vender, igual que lo cobra Binance. <code>MUB</code> es el bStock (acción tokenizada) de Micron en Binance, un instrumento distinto al spot cripto tradicional, motivo por el cual su fee por defecto está en 0.15% en vez de 0.10%; podés editarlo en cualquier momento si Binance lo cambia.
+  </div>
+
+</div>
+
+<script>
+  const SYMBOLS = {
+    ONDO: 'ONDOUSDT',
+    XRP: 'XRPUSDT',
+    HYPER: 'HYPERUSDT',
+    BTC: 'BTCUSDT',
+    MUB: 'MUBUSDT'
+  };
+
+  let activeSym = 'ONDO';
+  const priceCache = {};
+
+  // Estado en memoria por ticker. Cada símbolo guarda su propio set completo de inputs/modos,
+  // así al cambiar de tab no se pierde lo que tenías puesto en el anterior.
+  // (No usamos localStorage: los artifacts de Claude.ai no lo soportan de forma confiable.
+  //  Esto vive solo en memoria mientras la pestaña del navegador está abierta.)
+  function defaultState(initialFeePct){
+    return {
+      qty: '',
+      buyPrice: '',
+      sellPrice: '',
+      targetPct: '',
+      feePct: initialFeePct !== undefined ? String(initialFeePct) : '0.1',
+      mode: 'sell',     // 'sell' o 'pct'
+      qtyMode: 'crypto' // 'crypto' o 'usd'
+    };
+  }
+
+  const tickerState = {
+    ONDO: defaultState(),
+    XRP: defaultState(),
+    HYPER: defaultState(),
+    BTC: defaultState(),
+    MUB: defaultState(0.15) // bStock de Micron: fee distinto al spot cripto normal
+  };
+
+  // Atajos de conveniencia que reflejan el estado del ticker activo (para no reescribir todo calc()).
+  let mode = 'sell';
+  let qtyMode = 'crypto';
+
+  const el = (id) => document.getElementById(id);
+
+  function saveCurrentInputsToState(sym){
+    const s = tickerState[sym];
+    s.qty = el('qty').value;
+    s.buyPrice = el('buyPrice').value;
+    s.sellPrice = el('sellPrice').value;
+    s.targetPct = el('targetPct').value;
+    s.feePct = el('feePct').value;
+    s.mode = mode;
+    s.qtyMode = qtyMode;
+  }
+
+  function applyStateToInputs(sym){
+    const s = tickerState[sym];
+    el('qty').value = s.qty;
+    el('buyPrice').value = s.buyPrice;
+    el('sellPrice').value = s.sellPrice;
+    el('targetPct').value = s.targetPct;
+    el('feePct').value = s.feePct;
+
+    mode = s.mode;
+    qtyMode = s.qtyMode;
+
+    // refleja los toggles visualmente sin disparar otro guardado/cambio de estado
+    el('modeBySell').classList.toggle('on', mode === 'sell');
+    el('modeByPct').classList.toggle('on', mode === 'pct');
+    el('sellPriceField').style.display = mode === 'sell' ? 'block' : 'none';
+    el('pctField').style.display = mode === 'pct' ? 'block' : 'none';
+
+    el('qtyModeCrypto').classList.toggle('on', qtyMode === 'crypto');
+    el('qtyModeUsd').classList.toggle('on', qtyMode === 'usd');
+    if (qtyMode === 'crypto'){
+      el('qtyLabel').textContent = 'Cantidad de cripto que compro';
+      el('qtyUnitSuffix').textContent = 'unidades';
+      el('qtyHint').textContent = 'Cantidad de tokens que vas a comprar.';
+      el('qty').placeholder = 'ej: 500';
+    } else {
+      el('qtyLabel').textContent = 'Dólares que invierto';
+      el('qtyUnitSuffix').textContent = 'USDT';
+      el('qtyHint').textContent = 'Convierto esto a cantidad de cripto usando el precio de compra.';
+      el('qty').placeholder = 'ej: 100';
+    }
+  }
+
+  function fmtUsd(n, decimals=2){
+    if (!isFinite(n)) return '—';
+    return n.toLocaleString('en-US', {minimumFractionDigits:decimals, maximumFractionDigits:decimals}) + ' USDT';
+  }
+  function fmtPrice(n){
+    if (!isFinite(n)) return '—';
+    const decimals = n < 1 ? 5 : (n < 10 ? 4 : 2);
+    return '$' + n.toLocaleString('en-US', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+  }
+
+  async function loadPrices(){
+    for (const [key, pair] of Object.entries(SYMBOLS)){
+      try{
+        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
+        if (!res.ok) throw new Error('no data');
+        const data = await res.json();
+        const price = parseFloat(data.price);
+        priceCache[key] = price;
+        const node = el('px-' + key);
+        node.textContent = fmtPrice(price);
+        node.classList.remove('stale');
+      }catch(e){
+        const node = el('px-' + key);
+        node.textContent = 'sin datos';
+        node.classList.add('stale');
+      }
+    }
+    // si el ticker activo todavía no tiene precio de compra cargado, le pongo el precio de mercado
+    if (priceCache[activeSym] && !tickerState[activeSym].buyPrice){
+      tickerState[activeSym].buyPrice = priceCache[activeSym];
+      el('buyPrice').value = priceCache[activeSym];
+      calc();
+    }
+  }
+
+  function selectTicker(sym){
+    if (sym === activeSym) return;
+
+    // guardo lo que había en el ticker que estoy dejando
+    saveCurrentInputsToState(activeSym);
+
+    activeSym = sym;
+    document.querySelectorAll('.tick').forEach(t => t.classList.toggle('active', t.dataset.sym === sym));
+    el('symBadge').textContent = sym;
+
+    // si el nuevo ticker nunca tuvo precio de compra cargado, le sugiero el precio de mercado actual
+    if (!tickerState[sym].buyPrice && priceCache[sym]){
+      tickerState[sym].buyPrice = priceCache[sym];
+    }
+
+    applyStateToInputs(sym);
+    calc();
+  }
+
+  function clearActiveTicker(){
+    const defaultFee = activeSym === 'MUB' ? 0.15 : 0.1;
+    tickerState[activeSym] = defaultState(defaultFee);
+    // al limpiar, le volvemos a sugerir el precio de mercado actual si lo tenemos
+    if (priceCache[activeSym]){
+      tickerState[activeSym].buyPrice = priceCache[activeSym];
+    }
+    applyStateToInputs(activeSym);
+    calc();
+  }
+  el('clearBtn').addEventListener('click', clearActiveTicker);
+
+  document.querySelectorAll('.tick').forEach(t => {
+    t.addEventListener('click', () => selectTicker(t.dataset.sym));
+  });
+
+  function setQtyMode(newMode){
+    // antes de cambiar, convierto el valor actual para no perder lo que el usuario ya puso
+    const currentVal = parseFloat(el('qty').value);
+    const buyPrice = parseFloat(el('buyPrice').value);
+
+    if (!isNaN(currentVal) && buyPrice > 0 && currentVal > 0){
+      if (qtyMode === 'crypto' && newMode === 'usd'){
+        el('qty').value = (currentVal * buyPrice).toFixed(2);
+      } else if (qtyMode === 'usd' && newMode === 'crypto'){
+        el('qty').value = (currentVal / buyPrice).toFixed(6);
+      }
+    }
+
+    qtyMode = newMode;
+    el('qtyModeCrypto').classList.toggle('on', qtyMode === 'crypto');
+    el('qtyModeUsd').classList.toggle('on', qtyMode === 'usd');
+
+    if (qtyMode === 'crypto'){
+      el('qtyLabel').textContent = 'Cantidad de cripto que compro';
+      el('qtyUnitSuffix').textContent = 'unidades';
+      el('qtyHint').textContent = 'Cantidad de tokens que vas a comprar.';
+      el('qty').placeholder = 'ej: 500';
+    } else {
+      el('qtyLabel').textContent = 'Dólares que invierto';
+      el('qtyUnitSuffix').textContent = 'USDT';
+      el('qtyHint').textContent = 'Convierto esto a cantidad de cripto usando el precio de compra.';
+      el('qty').placeholder = 'ej: 100';
+    }
+    saveCurrentInputsToState(activeSym);
+    calc();
+  }
+  el('qtyModeCrypto').addEventListener('click', () => setQtyMode('crypto'));
+  el('qtyModeUsd').addEventListener('click', () => setQtyMode('usd'));
+
+  function setMode(newMode){
+    mode = newMode;
+    el('modeBySell').classList.toggle('on', mode === 'sell');
+    el('modeByPct').classList.toggle('on', mode === 'pct');
+    el('sellPriceField').style.display = mode === 'sell' ? 'block' : 'none';
+    el('pctField').style.display = mode === 'pct' ? 'block' : 'none';
+    saveCurrentInputsToState(activeSym);
+    calc();
+  }
+  el('modeBySell').addEventListener('click', () => setMode('sell'));
+  el('modeByPct').addEventListener('click', () => setMode('pct'));
+
+  function updateFeeDisplays(){
+    const f = parseFloat(el('feePct').value) || 0;
+    el('feeDisplay').textContent = f.toFixed(3).replace(/0+$/,'').replace(/\.$/,'') + '%';
+    el('feeTotalDisplay').textContent = (f*2).toFixed(3).replace(/0+$/,'').replace(/\.$/,'') + '%';
+  }
+
+  function calc(){
+    updateFeeDisplays();
+    const errBox = el('errBox');
+    errBox.textContent = '';
+
+    const rawQty = parseFloat(el('qty').value);
+    const buyPrice = parseFloat(el('buyPrice').value);
+    const feePct = (parseFloat(el('feePct').value) || 0) / 100;
+
+    if (!rawQty || rawQty <= 0 || !buyPrice || buyPrice <= 0){
+      el('netPctNum').textContent = '0.00%';
+      el('netUsdSub').textContent = '$0.00 USDT';
+      ['r-qtyBought','r-invested','r-feeBuy','r-grossSell','r-feeSell','r-netReceived','r-pnlUsd','r-sellUsed','breakevenPrice'].forEach(id => el(id).textContent = '—');
+      return;
+    }
+
+    // Si el usuario ingresó en USD, la cantidad de cripto comprada se deriva del monto / precio.
+    // Nota: esto asume que el monto en USD ingresado es el bruto con el que comprás (antes de fee),
+    // que es como normalmente uno piensa "voy a poner 100 dólares en esto".
+    const qty = (qtyMode === 'usd') ? (rawQty / buyPrice) : rawQty;
+
+    el('r-qtyBought').textContent = qty.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:6});
+
+    const grossInvested = qty * buyPrice;
+    const feeBuy = grossInvested * feePct;
+    const totalInvested = grossInvested + feeBuy; // lo que realmente sale de tu bolsillo
+
+    // Breakeven: precio de venta donde el neto recibido == totalInvested
+    // netReceived = qty * sellPrice * (1 - feePct)  =>  sellPrice = totalInvested / (qty * (1-feePct))
+    const breakevenPrice = totalInvested / (qty * (1 - feePct));
+    el('breakevenPrice').textContent = fmtPrice(breakevenPrice) + ` (vs. compra ${fmtPrice(buyPrice)})`;
+
+    let sellPrice;
+
+    if (mode === 'sell'){
+      sellPrice = parseFloat(el('sellPrice').value);
+      if (!sellPrice || sellPrice <= 0){
+        errBox.textContent = 'Ingresá un precio de venta válido.';
+        return;
+      }
+    } else {
+      const targetPct = parseFloat(el('targetPct').value);
+      if (isNaN(targetPct)){
+        errBox.textContent = 'Ingresá el % de ganancia neta deseado.';
+        return;
+      }
+      // queremos: (netReceived - totalInvested)/totalInvested = targetPct/100
+      // netReceived = totalInvested * (1 + targetPct/100)
+      // sellPrice = netReceived / (qty * (1-feePct))
+      const desiredNet = totalInvested * (1 + targetPct/100);
+      sellPrice = desiredNet / (qty * (1 - feePct));
+    }
+
+    const grossSell = qty * sellPrice;
+    const feeSell = grossSell * feePct;
+    const netReceived = grossSell - feeSell;
+    const pnlUsd = netReceived - totalInvested;
+    const netPct = (pnlUsd / totalInvested) * 100;
+
+    el('netPctNum').textContent = (netPct >= 0 ? '+' : '') + netPct.toFixed(2) + '%';
+    el('netPctNum').classList.toggle('pos', netPct >= 0);
+    el('netPctNum').classList.toggle('neg', netPct < 0);
+    el('netUsdSub').textContent = (pnlUsd >= 0 ? '+' : '') + fmtUsd(pnlUsd);
+
+    el('r-invested').textContent = fmtUsd(totalInvested);
+    el('r-feeBuy').textContent = '-' + fmtUsd(feeBuy);
+    el('r-grossSell').textContent = fmtUsd(grossSell);
+    el('r-feeSell').textContent = '-' + fmtUsd(feeSell);
+    el('r-netReceived').textContent = fmtUsd(netReceived);
+
+    const pnlEl = el('r-pnlUsd');
+    pnlEl.textContent = (pnlUsd >= 0 ? '+' : '') + fmtUsd(pnlUsd);
+    pnlEl.classList.toggle('green', pnlUsd >= 0);
+    pnlEl.classList.toggle('red', pnlUsd < 0);
+
+    el('r-sellUsed').textContent = fmtPrice(sellPrice);
+  }
+
+  ['qty','buyPrice','sellPrice','targetPct','feePct'].forEach(id => {
+    el(id).addEventListener('input', () => {
+      saveCurrentInputsToState(activeSym);
+      calc();
+    });
+  });
+
+  loadPrices();
+  applyStateToInputs(activeSym);
+  calc();
+</script>
+
+</body>
+</html>
