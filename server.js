@@ -1,8 +1,11 @@
 import express from 'express'
 import fetch   from 'node-fetch'
+import { fileURLToPath } from 'url'
+import { dirname, join }  from 'path'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
 const app  = express()
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 
 app.get('/api/candles/:symbol', async (req, res) => {
   const { symbol } = req.params
@@ -20,4 +23,8 @@ app.get('/api/candles/:symbol', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => console.log(`API server → http://localhost:${PORT}`))
+// Servir el frontend buildeado en producción
+app.use(express.static(join(__dirname, 'dist')))
+app.get('*', (_req, res) => res.sendFile(join(__dirname, 'dist', 'index.html')))
+
+app.listen(PORT, () => console.log(`Server → http://localhost:${PORT}`))
