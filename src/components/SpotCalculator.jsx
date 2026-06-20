@@ -203,22 +203,37 @@ export default function SpotCalculator() {
         </div>
 
         {/* Ticker strip */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:1, background:C.line, border:`1px solid ${C.line}`, marginBottom:22, overflow:'hidden' }}>
+        <style>{`
+          .ticker-strip { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:${C.line}; border:1px solid ${C.line}; margin-bottom:22px; }
+          .ticker-card  { padding:12px 14px; }
+          .ticker-price { font-size:16px; }
+          .ticker-note  { display:none; }
+          .calc-grid    { display:grid; grid-template-columns:1fr; gap:16px; }
+          @media (min-width: 640px) {
+            .ticker-strip { display:flex; }
+            .ticker-card  { flex:1 0 0; padding:14px 16px; }
+            .ticker-price { font-size:20px; }
+            .ticker-note  { display:block; }
+            .calc-grid    { grid-template-columns:1.1fr 1fr; }
+          }
+        `}</style>
+        <div className="ticker-strip">
           {TICKERS.map(t => {
             const active = t.sym === activeSym
             const price  = priceCache[t.sym]
             return (
               <div key={t.sym} onClick={() => selectTicker(t.sym)}
-                style={{ background: active ? C.panel2 : C.panel, padding:'14px 16px', cursor:'pointer', position:'relative', transition:'background 0.15s ease' }}>
+                className="ticker-card"
+                style={{ background: active ? C.panel2 : C.panel, cursor:'pointer', position:'relative', transition:'background 0.15s ease' }}>
                 {active && <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:C.accent }} />}
                 <div style={{ fontSize:11, letterSpacing:'0.1em', color:C.dim, display:'flex', justifyContent:'space-between' }}>
                   <span style={{ color:C.text, fontWeight:600 }}>{t.pair}</span>
                   <span>{t.label}</span>
                 </div>
-                <div style={{ fontSize:20, fontWeight:600, marginTop:6, color: price ? C.text : C.dim, fontVariantNumeric:'tabular-nums' }}>
+                <div className="ticker-price" style={{ fontWeight:600, marginTop:6, color: price ? C.text : C.dim, fontVariantNumeric:'tabular-nums' }}>
                   {price ? fmtPrice(price) : '—'}
                 </div>
-                <div style={{ fontSize:10, color:C.dim, marginTop:4 }}>
+                <div className="ticker-note" style={{ fontSize:10, color:C.dim, marginTop:4 }}>
                   {t.note ?? 'tocá para usar este precio'}
                 </div>
               </div>
@@ -227,7 +242,7 @@ export default function SpotCalculator() {
         </div>
 
         {/* Grid */}
-        <div style={{ display:'grid', gridTemplateColumns:'1.1fr 1fr', gap:16 }}>
+        <div className="calc-grid">
 
           {/* INPUT */}
           <div style={{ background:C.panel, border:`1px solid ${C.line}` }}>
